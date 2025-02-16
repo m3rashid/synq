@@ -1,0 +1,18 @@
+name: synq-backend
+
+networks:
+  default:
+    name: synq-backend-network
+
+services:
+  postgresdb:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: maindb
+    ports:
+      - 5432:5432
+    volumes:
+      - ./.data/postgresDb:/var/lib/postgresql/data
