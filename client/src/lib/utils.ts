@@ -5,4 +5,4 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export type ExplicitAndAll<Universe, Partical> = Partical & Exclude<Universe, Partical>;
+export type ExplicitAndAll<Universe, Particle> = Particle & Exclude<Universe, Particle>;
