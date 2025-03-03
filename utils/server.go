@@ -36,9 +36,9 @@ func NewServer() (Server, error) {
 		ExecDir:            exeDir,
 		AppConfig:          getFiberConfig(),
 		CorsConfig:         getCorsConfig(),
-		FaviconConfig:      getFaviconConfig(exeDir),
 		RateLimitConfig:    getRateLimitConfig(),
 		PublicFolderConfig: getPublicConfig(exeDir),
+		// FaviconConfig:      getFaviconConfig(exeDir),
 	}, nil
 }
 
@@ -72,12 +72,12 @@ func getCorsConfig() cors.Config {
 	}
 }
 
-func getFaviconConfig(exeDir string) favicon.Config {
-	return favicon.Config{
-		URL:  "/favicon.ico",
-		File: Ternary(Env.IsProduction, filepath.Join(exeDir, "client/dist/vite.svg"), "./client/dist/vite.svg"),
-	}
-}
+// func getFaviconConfig(exeDir string) favicon.Config {
+// 	return favicon.Config{
+// 		URL:  "/favicon.ico",
+// 		File: Ternary(Env.IsProduction, filepath.Join(exeDir, "client/dist/vite.svg"), "./client/dist/vite.svg"),
+// 	}
+// }
 
 func getRateLimitConfig() limiter.Config {
 	return limiter.Config{
