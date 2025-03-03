@@ -22,6 +22,22 @@ Local-first web applications are more reliable and faster than traditional web a
 
 ---
 
-### Approach
+### Implementation
 
 This is a simple local-first web application using React and IndexedDB. The application will be a simple note-taking app where users can create, read, update, and delete notes. The data will be stored locally on the user's device using IndexedDB and will be synchronized with the server when they are online.
+
+**Steps**
+
+1. Store a local copy of the data in the IndexedDB
+2. Maintain an in-memory copy of the data (state) on the frontend.
+3. Maintain an action queue of all the actions performed by the user (in-order)
+4. In a pre-defined time interval, execute actions in this queue one by one (or batched) in the order they were performed
+5. On page load, fetch the data from IndexedDB and display it in the UI
+6. At the same time, push an entry to the action queue to fetch the data from the server
+7. When the user performs any action, push an entry to the action queue
+8. In the execution of the action queue:
+   - Update the in-memory data (state) and notify the UI
+   - [Background] Fetch the data from the server
+   - [Background] Update the local copy of the data in the IndexedDB
+   - In case of any error, undo the action (state) and notify the user
+   - Remove the action from the queue
