@@ -31,5 +31,5 @@ export interface BaseModel<T extends object> {
   delete: (id: number) => void;
   deleteMany?: (filters: Partial<T>) => void;
 
-  forceSync: () => Promise<void>;
+  forceSync: () => void;
 }

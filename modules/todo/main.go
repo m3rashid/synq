@@ -3,6 +3,9 @@ package todo
 import (
 	"strconv"
 
+	"slices"
+
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -12,21 +15,25 @@ type Todo struct {
 	Description string `json:"description"`
 }
 
-var todos []Todo = []Todo{
-	{1, "Learn Go", "Learn Go programming language"},
-	{2, "Learn Fiber", "Learn Fiber web framework"},
-	{3, "Build a RESTful API", "Build a RESTful API using Go and Fiber"},
-	{4, "Build a Todo App", "Build a Todo App using Go and Fiber"},
-	{5, "Build a Blog App", "Build a Blog App using Go and Fiber"},
-	{6, "Build a Chat App", "Build a Chat App using Go and Fiber"},
-	{7, "Build a E-commerce App", "Build a E-commerce App using Go and Fiber"},
-	{8, "Build a Social Media App", "Build a Social Media App using Go and Fiber"},
-	{9, "Build a Realtime App", "Build a Realtime App using Go and Fiber"},
-	{10, "Build a Websocket App", "Build a Websocket App using Go and Fiber"},
+func generateFakeTodos(count int) []Todo {
+	todos := make([]Todo, count)
+	for i := range count {
+		todos[i] = Todo{
+			Id:          i + 1,
+			Title:       gofakeit.Quote(),
+			Description: gofakeit.Sentence(20),
+		}
+	}
+	return todos
 }
+
+var todos []Todo = generateFakeTodos(8)
 
 func Setup(router fiber.Router) {
 	router.Get("/", func(c *fiber.Ctx) error {
+		if len(todos) == 0 {
+			todos = generateFakeTodos(8)
+		}
 		return c.JSON(todos)
 	})
 
@@ -67,5 +74,28 @@ func Setup(router fiber.Router) {
 
 		todos = append(todos, todo)
 		return c.JSON(fiber.Map{"id": todo.Id})
+	})
+
+	router.Post("/delete/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		id_int, err := strconv.Atoi(id)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+
+		found := false
+		for i, t := range todos {
+			if t.Id == id_int {
+				todos = slices.Delete(todos, i, i+1)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return c.SendStatus(fiber.StatusNotFound)
+		}
+
+		return c.JSON(fiber.Map{"message": "Todo deleted successfully"})
 	})
 }

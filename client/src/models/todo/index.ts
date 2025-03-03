@@ -36,16 +36,14 @@ class TodoModel implements BaseModel<Todo> {
 
   disableAutoSync() {
     if (this.syncIntervalId) {
-      console.log({ syncId: this.syncIntervalId, type: 'disable' });
       clearInterval(this.syncIntervalId);
     }
   }
 
   enableAutoSync() {
     if (!this.syncIntervalId) {
-      console.log({ syncId: this.syncIntervalId, type: 'enable' });
       this.syncIntervalId = setInterval(() => {
-        this.syncModel();
+        this.syncTodos();
       }, this.syncIntervalTime) as unknown as number;
     }
   }
@@ -76,21 +74,18 @@ class TodoModel implements BaseModel<Todo> {
 
   delete(id: number) {
     this.actionQueue.push({ action: 'delete', data: { id } });
+    this.syncTodos();
   }
 
-  async forceSync() {
-    await this.syncTodos();
+  forceSync() {
+    this.pushRefetchAllActionToQueue();
+    this.syncTodos();
   }
 
   private async init() {
     const initialTodos = await this.db.todos.toArray();
     this.todos = initialTodos;
     this.emitChangesToAllListeners();
-  }
-
-  private syncModel() {
-    if (this.actionQueue.length === 0) return;
-    void this.syncTodos();
   }
 
   private pushRefreshActionToQueue(id: number) {
@@ -104,52 +99,83 @@ class TodoModel implements BaseModel<Todo> {
 
   private pushRefetchAllActionToQueue() {
     const lastItem = this.actionQueue[this.actionQueue.length - 1];
+    if (this.actionQueue.length > 0 && lastItem.action === 'refetchAll') return;
 
-    if (lastItem.action === 'refetchAll') return;
     this.actionQueue.push({ action: 'refetchAll' });
   }
 
-  private async syncTodos() {
-    console.log('Syncing todos');
+  private async createTodo(data: Partial<Omit<Todo, 'id'>>) {
+    try {
+      const res = await createTodoFromServer({ body: data });
+      if (res?.id) {
+        const todo = { id: res.id, title: data.title ?? '', description: data.description };
+        this.todos = [...this.todos, todo];
+        this.emitChangesToAllListeners();
+      }
+    } catch (err: unknown) {
+      console.error('Error in creating todo', err);
+    }
+  }
+
+  private deleteTodo(todoId: number) {
+    const todoPos = this.todos.findIndex((t) => t.id === todoId);
+    if (todoPos === -1) return;
+
+    const todo = this.todos[todoPos];
+    this.todos = this.todos.filter((t) => t.id !== todoId);
+    this.emitChangesToAllListeners();
+
+    void deleteTodoFromServer({ params: { id: todoId } })
+      .then(() => void this.db.todos.delete(todoId))
+      .catch((err: unknown) => {
+        console.error('Error in deleting from server', err);
+        this.todos = [...this.todos.slice(0, todoPos), todo, ...this.todos.slice(todoPos)];
+        this.emitChangesToAllListeners();
+      });
+  }
+
+  private async getAllTodos() {
+    const todos = await getTodosFromServer();
+
+    if (todos) {
+      this.todos = todos;
+      await this.db.todos.clear();
+      await this.db.todos.bulkPut(todos);
+      this.emitChangesToAllListeners();
+    }
+    this.actionQueue.shift();
+  }
+
+  private syncTodos() {
     if (this.actionQueue.length === 0) return;
+    if (!navigator.onLine) return;
+    console.log(this.actionQueue.map((aq) => aq.action));
 
     for (const item of this.actionQueue) {
-      try {
-        if (item.action === 'create') {
-          const data = await createTodoFromServer({ body: item.data });
-          if (data?.id) this.pushRefreshActionToQueue(data.id);
-          this.actionQueue.shift();
-        } else if (item.action === 'createMany') {
-          //
-        } else if (item.action === 'delete') {
-          await deleteTodoFromServer({ params: { id: item.data.id } });
-          this.actionQueue.shift();
-        } else if (item.action === 'deleteMany') {
-          //
-        } else if (item.action === 'update') {
-          //
-        } else if (item.action === 'updateMany') {
-          //
-        } else if (item.action === 'refetchAll') {
-          const todos = await getTodosFromServer();
-          if (todos && todos.length > 0) {
-            this.todos = todos;
-            await this.db.todos.bulkPut(todos);
-          }
-          this.actionQueue.shift();
-        } else {
-          const todo = await getSingleTodoFromServer({ params: { id: item.data.id } });
-          if (todo) {
-            this.todos = this.todos.map((t) => (t.id === todo.id ? todo : t));
-            await this.db.todos.put(todo);
-          }
-          this.actionQueue.shift();
-        }
-      } catch (err: unknown) {
-        item.error = err as Error;
-      } finally {
-        this.emitChangesToAllListeners(); // TODO: find a better way to do this
+      switch (item.action) {
+        case 'create':
+          void this.createTodo(item.data);
+          break;
+        case 'createMany':
+          break; // TODO
+        case 'delete':
+          this.deleteTodo(item.data.id);
+          break;
+        case 'deleteMany':
+          break; // TODO
+        case 'update':
+          break; // TODO
+        case 'updateMany':
+          break; // TODO
+        case 'refetchAll':
+          void this.getAllTodos();
+          break;
+        case 'refetch':
+          break; // TODO
+        default:
+          break;
       }
+      this.actionQueue.shift();
     }
   }
 
@@ -165,7 +191,7 @@ export const todoModel = new TodoModel({ syncInterval: 5000 });
 export function useTodoModel() {
   return {
     todos: useSyncExternalStore(
-      (l) => todoModel.subscribe(l),
+      (listener) => todoModel.subscribe(listener),
       () => todoModel.getAll()
     ),
   };
