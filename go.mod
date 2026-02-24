@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.2.1
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/google/uuid v1.6.0
 	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f
 	golang.org/x/text v0.13.0
